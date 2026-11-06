@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1820">
+  <meta name="description" content="用互動地圖逐步看懂 Kruskal、Prim 與最小生成樹。">
+  <title>Kruskal &amp; Prim — 資料結構遊戲場</title>
+  <link rel="stylesheet" href="mst.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="brand-mark">↗</span> 資料結構遊戲場 <span class="brand-divider">18 ·</span> MST</a>
+    <nav class="chapter-nav" aria-label="章節導覽">
+      <a href="#definition"><span>00</span> 定義</a>
+      <a href="#how-to"><span>01</span> 玩法</a>
+      <a href="#playground"><span>02</span> 遊戲</a>
+      <a href="#principles"><span>03</span> 原理</a>
+      <a href="#code"><span>04</span> 程式</a>
+      <a class="chapter-link" href="index.html">Dijkstra ↗</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="intro section-wrap" id="definition">
+      <div class="eyebrow"><span class="eyebrow-dot"></span> MINIMUM SPANNING TREE, STEP BY STEP</div>
+      <h1>把網路接起來，<span class="accent-text">總長度最短。</span></h1>
+      <p class="intro-copy">把校園裡的建築接成一張網：每條路有成本，目標是讓所有地方都連通，同時讓總成本最低。一起走過 Kruskal、Prim、併查集、平手與不連通的圖。</p>
+      <div class="definition-strip">
+        <span class="definition-icon">V−1</span>
+        <p><strong>最小生成樹是什麼？</strong> 把圖上所有頂點連起來、不形成環，並讓總權重最小的邊集合。若圖不連通，得到的是最小生成森林。</p>
+      </div>
+    </section>
+
+    <section class="playground section-wrap" id="playground" aria-label="最小生成樹互動遊戲場">
+      <div class="playground-heading">
+        <div><div class="eyebrow">INTERACTIVE PLAYGROUND</div><h2>開始玩</h2><p class="section-subtitle">選關卡 → 一步一步走 → 看邊一條一條被收下或跳過。</p></div>
+        <div class="mode-switch" role="group" aria-label="選擇模式">
+          <button class="mode-button active" id="demo-mode" type="button" aria-pressed="true">演示模式</button>
+          <button class="mode-button" id="challenge-mode" type="button" aria-pressed="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="graph-picker">
+        <span class="control-label">關卡</span>
+        <div class="graph-tabs" role="group" aria-label="選擇最小生成樹關卡">
+          <button class="graph-tab selected" type="button" data-level="campus" aria-pressed="true"><strong>1 Kruskal</strong><span>校園地圖</span></button>
+          <button class="graph-tab" type="button" data-level="primA" aria-pressed="false"><strong>2 Prim·A</strong><span>從 A 長出去</span></button>
+          <button class="graph-tab" type="button" data-level="primF" aria-pressed="false"><strong>3 Prim·F</strong><span>換起點 F</span></button>
+          <button class="graph-tab" type="button" data-level="tie" aria-pressed="false"><strong>4 平手</strong><span>兩棵都最小</span></button>
+          <button class="graph-tab" type="button" data-level="cycles" aria-pressed="false"><strong>5 成環</strong><span>一直成環</span></button>
+          <button class="graph-tab" type="button" data-level="forest" aria-pressed="false"><strong>6 森林</strong><span>不連通的圖</span></button>
+        </div>
+      </div>
+
+      <div class="workspace-grid">
+        <section class="map-card panel" aria-label="校園加權地圖">
+          <div class="panel-heading"><h3 id="map-heading">地圖 + KRUSKAL 的資料</h3><span class="mono" id="sort-label">還沒排序</span></div>
+          <div class="map-viewport"><svg id="mst-svg" viewBox="0 0 800 430" role="img" aria-label="目前關卡的加權地圖"></svg></div>
+          <div class="legend" aria-label="地圖圖例">
+            <span><i class="legend-line inspecting"></i>正在看的邊</span>
+            <span><i class="legend-line accepted"></i>收下（在 MST 裡）</span>
+            <span><i class="legend-line rejected"></i>成環跳過</span>
+            <span><i class="legend-dot component"></i>同色頂點＝同一組</span>
+          </div>
+          <div class="data-grid">
+            <section class="data-card">
+              <div class="panel-heading"><h3 id="edge-list-title">EDGES · 輸入的順序（還沒排序）</h3><span class="mono" id="edge-count"></span></div>
+              <ol class="edge-list" id="edge-list" aria-live="polite"></ol>
+            </section>
+            <section class="data-card">
+              <div class="panel-heading"><h3 id="set-title">UNION-FIND · p[x]（同色＝同一組）</h3></div>
+              <div class="set-table-wrap"><table class="set-table"><thead id="set-head"></thead><tbody id="set-body"></tbody></table><p class="table-note" id="set-note"></p></div>
+            </section>
+          </div>
+          <div class="controls">
+            <button class="control-button secondary" id="prev-button" type="button" disabled>← 上一步</button>
+            <button class="control-button primary" id="next-button" type="button">下一步 <span>→</span></button>
+            <button class="control-button secondary" id="play-button" type="button"><span id="play-icon">▶</span> <span id="play-label">自動播放</span></button>
+            <button class="control-button secondary" id="reset-button" type="button">↺ 重來</button>
+            <div class="progress-track" role="progressbar" aria-label="演算法進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
+            <span class="progress-count mono" id="progress-count">0 / 0</span>
+          </div>
+          <div class="narration" aria-live="polite"><span class="narration-tag" id="step-tag">START</span><div><strong id="step-title"></strong><p id="step-detail"></p></div></div>
+        </section>
+
+        <aside class="side-column">
+          <section class="panel stats-card">
+            <div class="panel-heading"><h3>統計</h3><span class="mono" id="algorithm-label">Kruskal</span></div>
+            <div class="stats-grid">
+              <div class="stat"><span>已收的邊</span><strong class="teal"><span id="stat-accepted">0</span> / <span id="stat-target">5</span></strong></div>
+              <div class="stat"><span>目前總重</span><strong class="teal" id="stat-weight">0</strong></div>
+              <div class="stat"><span>已看的邊</span><strong class="orange" id="stat-checked">0</strong></div>
+              <div class="stat"><span>成環跳過</span><strong class="coral" id="stat-skipped">0</strong></div>
+            </div>
+          </section>
+          <section class="panel history-card"><div class="panel-heading"><h3>歷程</h3></div><ol id="history-list" aria-live="polite"></ol></section>
+          <section class="panel challenge-card" id="challenge-card" hidden>
+            <div class="challenge-kicker">YOUR TURN</div><h3>這條邊要收下嗎？</h3>
+            <p id="challenge-prompt">判斷這條邊會連接兩個不同的連通分量嗎？</p>
+            <div class="challenge-options" id="challenge-options"></div>
+            <p class="challenge-feedback" id="challenge-feedback" aria-live="polite"></p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="learning section-wrap" id="how-to">
+      <div class="section-title"><div class="eyebrow">A SMALL GUIDE</div><h2>怎麼玩，先看這裡。</h2></div>
+      <div class="learning-grid">
+        <article class="info-card panel">
+          <h3>怎麼玩</h3>
+          <p>上方是校園地圖，下方是演算法手上的資料。綠色粗線是已經收進最小生成樹的邊，橘色虛線是正在看的邊，紅色虛線是因為會成環而跳過的邊。</p>
+          <h4>演示模式</h4>
+          <ol class="numbered-list">
+            <li><span>1</span><p>挑一個<strong>關卡</strong>。每關名稱前面寫著用哪一種演算法（Kruskal 或 Prim）。</p></li>
+            <li><span>2</span><p>按<strong>下一步</strong>一格一格走。Kruskal 看左下「排序好的邊」和右下「併查集 p[]」；Prim 看優先佇列和已在樹裡的節點。</p></li>
+            <li><span>3</span><p>Kruskal 的同色頂點代表<strong>同一組</strong>；Prim 的綠色頂點代表<strong>已經在樹裡</strong>。</p></li>
+            <li><span>4</span><p>隨時按<strong>上一步</strong>倒回去，下面的資料也會跟著回到那一刻。</p></li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="numbered-list"><li><span>1</span><p>先猜目前這條邊會不會被收下；答對得分，答錯會說明原因。</p></li><li><span>2</span><p>每次答案揭曉後按<strong>下一步</strong>，繼續挑戰直到完成。</p></li></ol>
+          <div class="keyboard-hint"><span class="hint-badge">操作</span><span>鍵盤 → 下一步 · ← 上一步 · 空白鍵 播放 / 暫停</span></div>
+        </article>
+        <article class="info-card panel" id="principles">
+          <h3>你會學到什麼</h3>
+          <ul class="concept-list">
+            <li><span><strong>最小生成樹的定義</strong>——全部連通、沒有環、V−1 條邊、總重最小。</span></li>
+            <li><span><strong>Kruskal</strong>——邊由小到大排序，一條一條看，會成環就跳過。</span></li>
+            <li><span><strong>併查集</strong>——用 find 找老大，判斷兩端是不是已經同一組；union 把兩組接起來。</span></li>
+            <li><span><strong>Prim</strong>——從一個頂點長出去，每次接上離目前這棵樹最便宜的邊。</span></li>
+            <li><span><strong>切割性質</strong>——跨越目前樹與外部的最輕邊，可以安全地加入 MST。</span></li>
+            <li><span><strong>平手與不連通</strong>——最小生成樹可能不只一棵；不連通的圖只能得到最小生成森林。</span></li>
+          </ul>
+          <div class="recommendation"><span class="recommend-icon">建議順序</span><p>第 1 關 Kruskal → 第 2 關 Prim（同一張圖，總重一樣但收邊順序不同）→ 第 3 關換起點 → 第 4 關看平手 → 第 5 關一直成環 → 第 6 關不連通。</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="code-section section-wrap" id="code">
+      <div class="code-heading"><div><div class="eyebrow">THE IDEA IN CODE</div><h2>兩種走法，同一個目標。</h2></div><span class="complexity-badge">Kruskal O(E log E)</span></div>
+      <div class="code-card panel"><div class="code-top"><span><i></i><i></i><i></i></span><span class="mono">minimum-spanning-tree</span><span class="mono">PSEUDOCODE</span></div><pre><code><span class="code-comment">// Kruskal：先看最便宜的邊，避免成環</span>
+sort(edges, by weight)
+<span class="code-keyword">for each</span> edge (u, v, weight):
+    <span class="code-keyword">if</span> find(u) != find(v):
+        union(u, v)
+        mst.add((u, v, weight))
+    <span class="code-keyword">else</span>: <span class="code-comment">skip // 這條邊會形成環</span>
+
+<span class="code-comment">// Prim：每次從目前樹跨出去，接最便宜的一條邊</span>
+tree = {start}
+<span class="code-keyword">while</span> tree does not contain every vertex:
+    edge = minimum edge crossing (tree, outside)
+    tree.add(edge.other_endpoint)
+    mst.add(edge)</code></pre></div>
+      <p class="closing-note">Kruskal 從「邊」出發，Prim 從「點」長出去。<strong>兩條路，都通往最小生成樹。</strong></p>
+    </section>
+  </main>
+  <footer class="footer"><span>資料結構遊戲場 <span class="footer-dot">·</span> 把抽象的演算法，變成看得見的每一步。</span><a href="index.html">前往 Dijkstra ↗</a></footer>
+  <script src="mst.js"></script>
+</body>
+</html>
