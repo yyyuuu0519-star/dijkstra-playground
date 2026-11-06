@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1820">
+  <meta name="description" content="用互動加權地圖，一步一步看懂 Dijkstra 最短路徑演算法。">
+  <title>Dijkstra — 資料結構遊戲場</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="brand-mark">↗</span> 資料結構遊戲場 <span class="brand-divider">17 ·</span> Dijkstra</a>
+    <nav class="chapter-nav" aria-label="章節導覽">
+      <a href="#definition"><span>00</span> 定義</a>
+      <a href="#how-to"><span>01</span> 玩法</a>
+      <a href="#playground"><span>02</span> 遊戲</a>
+      <a href="#principles"><span>03</span> 原理</a>
+      <a href="#code"><span>04</span> 程式</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="intro section-wrap" id="definition">
+      <div class="eyebrow"><span class="eyebrow-dot"></span> SHORTEST PATH, STEP BY STEP</div>
+      <h1>讓每一步，都走在<span class="accent-text">最短路上。</span></h1>
+      <p class="intro-copy">把 Dijkstra 演算法變成一張會動的地圖。選起點、按下下一步，親眼看見距離如何更新、優先佇列如何選出下一個節點。</p>
+      <div class="definition-strip">
+        <span class="definition-icon">∞</span>
+        <p><strong>Dijkstra 是什麼？</strong> 在所有邊權重皆為非負的圖上，反覆取出目前距離最小的節點，並用它更新鄰居的最短距離。</p>
+      </div>
+    </section>
+
+    <section class="playground section-wrap" id="playground" aria-label="Dijkstra 互動遊戲場">
+      <div class="playground-heading">
+        <div>
+          <div class="eyebrow">INTERACTIVE PLAYGROUND</div>
+          <h2>把最短路徑走出來</h2>
+        </div>
+        <div class="mode-switch" role="group" aria-label="選擇模式">
+          <button class="mode-button active" id="demo-mode" type="button" aria-pressed="true">演示模式</button>
+          <button class="mode-button" id="challenge-mode" type="button" aria-pressed="false">闖關模式</button>
+        </div>
+      </div>
+
+      <div class="graph-picker">
+        <span class="control-label">關卡</span>
+        <div class="graph-tabs" role="group" aria-label="選擇加權圖">
+          <button class="graph-tab selected" type="button" data-graph="lesson" aria-pressed="true"><strong>6點8邊</strong><span>教學小圖</span></button>
+          <button class="graph-tab" type="button" data-graph="trap" aria-pressed="false"><strong>6點7邊</strong><span>BFS 陷阱圖</span></button>
+          <button class="graph-tab" type="button" data-graph="city" aria-pressed="false"><strong>9點13邊</strong><span>城市路網</span></button>
+        </div>
+        <div class="endpoints">
+          <label for="start-select">起點</label>
+          <select id="start-select" aria-label="選擇起點"></select>
+          <label for="end-select">終點</label>
+          <select id="end-select" aria-label="選擇終點"></select>
+        </div>
+      </div>
+
+      <div class="workspace-grid">
+        <section class="map-card panel" aria-label="加權地圖">
+          <div class="panel-heading">
+            <h3>加權地圖</h3>
+            <span class="mono" id="graph-count">6 節點 · 8 邊</span>
+          </div>
+          <div class="map-viewport">
+            <svg id="graph-svg" viewBox="0 0 800 430" role="img" aria-label="目前關卡的加權圖"></svg>
+          </div>
+          <div class="legend" aria-label="地圖圖例">
+            <span><i class="legend-dot expanding"></i>正在展開</span>
+            <span><i class="legend-dot settled"></i>已出爐（定案）</span>
+            <span><i class="legend-dot queued"></i>在佇列裡</span>
+            <span><i class="legend-dot unexplored"></i>未探索</span>
+            <span><i class="legend-line relaxing"></i>正被鬆弛的邊</span>
+            <span><i class="legend-line shortest"></i>最短路徑</span>
+          </div>
+          <div class="controls">
+            <button class="control-button secondary" id="prev-button" type="button" disabled>← 上一步</button>
+            <button class="control-button primary" id="next-button" type="button">下一步 <span>→</span></button>
+            <button class="control-button secondary" id="play-button" type="button"><span id="play-icon">▶</span> <span id="play-label">自動播放</span></button>
+            <button class="control-button secondary" id="reset-button" type="button">↺ 重來</button>
+            <div class="progress-track" role="progressbar" aria-label="演算法進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="progress-fill"></span>
+            </div>
+            <span class="progress-count mono" id="progress-count">0 / 0</span>
+          </div>
+          <div class="narration" aria-live="polite">
+            <span class="narration-tag" id="step-tag">START</span>
+            <div><strong id="step-title"></strong><p id="step-detail"></p></div>
+          </div>
+        </section>
+
+        <aside class="side-column">
+          <section class="panel queue-card">
+            <div class="panel-heading">
+              <h3>優先佇列 <span class="mono">(DIST, 節點)</span></h3>
+              <span class="mono" id="queue-count">0 條目</span>
+            </div>
+            <div class="queue-list" id="queue-list" aria-live="polite"></div>
+            <div class="stats-grid">
+              <div class="stat"><span>取出次數</span><strong id="stat-pops">0</strong></div>
+              <div class="stat"><span>過期跳過</span><strong class="coral" id="stat-stale">0</strong></div>
+              <div class="stat"><span>鬆弛成功</span><strong class="orange" id="stat-relax">0</strong></div>
+              <div class="stat"><span>已出爐</span><strong class="teal" id="stat-settled">0</strong></div>
+            </div>
+          </section>
+          <section class="panel table-card">
+            <div class="panel-heading">
+              <h3>DIST / PARENT 表</h3>
+              <span class="mono" id="settled-count">出爐 0 / 6</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>點</th><th>DIST</th><th>PARENT</th><th>狀態</th></tr></thead>
+                <tbody id="distance-body"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel challenge-card" id="challenge-card" hidden>
+            <div class="challenge-kicker">YOUR TURN</div>
+            <h3>猜猜下一步</h3>
+            <p id="challenge-prompt">下一個會從佇列取出哪個節點？</p>
+            <div class="challenge-options" id="challenge-options"></div>
+            <p class="challenge-feedback" id="challenge-feedback" aria-live="polite"></p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="learning section-wrap" id="how-to">
+      <div class="section-title">
+        <div class="eyebrow">A SMALL GUIDE</div>
+        <h2>先看這一段，再往下玩。</h2>
+      </div>
+      <div class="learning-grid">
+        <article class="info-card panel">
+          <h3>怎麼玩</h3>
+          <p>畫面上是一張有權重的地圖：圓圈是地點（節點），連線是道路（邊），線上的數字是走那段路要花的時間（權重）。每個節點上方的數字，是「目前已知最快幾分鐘能到這裡」——開始除了起點是 0，其他全是 ∞（還不知道怎麼去）。</p>
+          <h4>演示模式</h4>
+          <ol class="numbered-list">
+            <li><span>1</span><p>挑一個<strong>關卡</strong>，也可以換<strong>起點 / 終點</strong>。</p></li>
+            <li><span>2</span><p>按<strong>下一步</strong>一格一格走，看三塊畫面同步變化：地圖上的顏色、右邊的優先佇列、DIST/PARENT 表。</p></li>
+            <li><span>3</span><p>特別注意佇列裡出現「<strong>過期</strong>」條目的時刻——那是本關最精華的一幕。</p></li>
+            <li><span>4</span><p>隨時按<strong>上一步</strong>倒回去反覆看。</p></li>
+          </ol>
+          <h4>闖關模式</h4>
+          <ol class="numbered-list">
+            <li><span>1</span><p>先不給答案，由你猜：下一個取出誰？這條邊鬆弛後 dist 變多少？這張條目過期了嗎？</p></li>
+            <li><span>2</span><p>答對得分，<strong>連續答對</strong>額外加分；答錯立刻說明理由。</p></li>
+          </ol>
+          <div class="keyboard-hint"><span class="hint-badge">操作</span><span>鍵盤 → 下一步 · ← 上一步 · 空白鍵 播放 / 暫停</span></div>
+        </article>
+        <article class="info-card panel" id="principles">
+          <h3>你會學到什麼</h3>
+          <ul class="concept-list">
+            <li><span><strong>為什麼 BFS 在加權圖上會答錯</strong>——邊數最少 ≠ 總時間最短。第 2 關就是專門設計來讓 BFS 出糗的反例。</span></li>
+            <li><span><strong>優先佇列是什麼</strong>——一種「永遠讓最小的排最前面」的候位名單。把 Queue 的普通佇列換成它，BFS 就升級成 Dijkstra。</span></li>
+            <li><span><strong>鬆弛（relax）</strong>——「發現更快的走法就更新筆記」，這個動作的正式名字。整個演算法就是不停地鬆弛。</span></li>
+            <li><span><strong>lazy deletion（過期條目）</strong>——dist 被更新後，佇列裡的舊條目不用刪，取出時認出它過期、跳過就好。</span></li>
+            <li><span><strong>貪心為什麼是對的</strong>——為什麼被取出的節點 dist 就此定案、永不再變。</span></li>
+            <li><span><strong>負權重為什麼會壞掉</strong>——Dijkstra 的保證建立在「路只會越走越長」上。</span></li>
+            <li><span><strong>複雜度 O((V+E) log V)</strong>——log 是優先佇列收的手續費。</span></li>
+          </ul>
+          <div class="recommendation"><span class="recommend-icon">建議順序</span><p>先用演示模式走完第 1 關教學小圖（會遇到兩次過期條目），再玩第 2 關 BFS 陷阱圖看清楚為什麼要升級佇列，最後切闖關模式挑戰第 3 關。</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="code-section section-wrap" id="code">
+      <div class="code-heading"><div><div class="eyebrow">THE IDEA IN CODE</div><h2>核心只有四件事。</h2></div><span class="complexity-badge">O((V + E) log V)</span></div>
+      <div class="code-card panel">
+        <div class="code-top"><span><i></i><i></i><i></i></span><span class="mono">dijkstra.js</span><span class="mono">PSEUDOCODE</span></div>
+        <pre><code><span class="code-comment">// 1. 起點距離設為 0，其餘設為無限大</span>
+dist[start] = 0
+pq.push((0, start))
+
+<span class="code-keyword">while</span> pq <span class="code-keyword">is not empty</span>:
+    (d, u) = pq.pop_min()
+    <span class="code-keyword">if</span> d &gt; dist[u]: <span class="code-keyword">continue</span>  <span class="code-comment">// 2. 跳過過期條目</span>
+
+    <span class="code-keyword">for each</span> edge (u, v, weight):
+        candidate = dist[u] + weight
+        <span class="code-keyword">if</span> candidate &lt; dist[v]:     <span class="code-comment">// 3. 鬆弛：找到更短的路</span>
+            dist[v] = candidate
+            parent[v] = u
+            pq.push((candidate, v)) <span class="code-comment">// 4. 放入新的候選距離</span></code></pre>
+      </div>
+      <p class="closing-note">每次取出最小距離，然後把更好的可能性放回佇列。<strong>就這麼簡單，直到所有最短路徑都浮現。</strong></p>
+    </section>
+  </main>
+  <footer class="footer"><span>資料結構遊戲場 <span class="footer-dot">·</span> 把抽象的演算法，變成看得見的每一步。</span><a href="#top">回到頂端 ↑</a></footer>
+  <script src="app.js"></script>
+</body>
+</html>
